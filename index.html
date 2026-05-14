@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>ระบบจัดการราคารับซื้อ - v1.6.2 (แก้ไข Matrix ได้)</title>
+    <title>ระบบจัดการราคารับซื้อ - v1.6.2</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
         body { background: #f0f4f8; padding: 20px; color: #1a202c; }
@@ -13,6 +13,7 @@
         
         .flex-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
         .flex-between { justify-content: space-between; align-items: center; }
+        
         .settings-bar { background: #f8fafc; border-radius: 20px; padding: 20px; margin-bottom: 24px; border: 1px solid #edf2f7; }
         .form-group { display: flex; flex-direction: column; gap: 6px; min-width: 120px; }
         label { font-weight: 700; font-size: 0.8rem; color: #4a5568; }
@@ -33,41 +34,83 @@
         .price-input { width: 110px; font-weight: 700; color: #2f855a; border-color: #c6f6d5; background: #f0fff4; text-align: right; }
         .tier-input { width: 100px; text-align: right; }
         
-        .matrix-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; border: 1px solid #e2e8f0; }
-        .matrix-table input { 
-            width: 55px; padding: 2px 4px; border: 1px solid transparent; 
-            background: transparent; text-align: right; font-size: 0.75rem; 
-        }
-        .matrix-table input:hover { border-color: #cbd5e0; background: white; }
-        .matrix-table input:focus { border-color: #38a169; background: white; outline: none; }
+        .matrix-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
         .matrix-table th { background: #edf2f7; padding: 4px; border: 1px solid #e2e8f0; }
-        .matrix-table td { padding: 2px; border: 1px solid #e2e8f0; text-align: center; }
-        .weight-range { background: #fffaf0; color: #9c4221; font-weight: 700; min-width: 65px; }
-        
+        .matrix-table td { padding: 4px; border: 1px solid #e2e8f0; text-align: center; }
+        .weight-range { background: #fffaf0; color: #9c4221; font-weight: 700; }
+
+        /* สไตล์สำหรับช่องกรอกราคาใน Matrix */
+        .matrix-price-input {
+            width: 58px;
+            padding: 2px 4px;
+            border: 1px solid transparent;
+            background: transparent;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #2d3748;
+            border-radius: 4px;
+            -moz-appearance: textfield;
+        }
+        .matrix-price-input::-webkit-outer-spin-button,
+        .matrix-price-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .matrix-price-input:hover { border-color: #cbd5e0; background: #fff; }
+        .matrix-price-input:focus { border-color: #38a169; background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(56,161,105,0.1); }
+
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-        .modal-content { background: white; border-radius: 24px; padding: 30px; max-width: 900px; width: 95%; max-height: 85vh; overflow-y: auto; }
+        .modal-content { background: white; border-radius: 24px; padding: 30px; max-width: 900px; width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
         .hidden { display: none; }
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2d3748; color: white; padding: 12px 30px; border-radius: 50px; display: none; z-index: 2000; }
+        
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2d3748; color: white; padding: 12px 30px; border-radius: 50px; font-size: 0.95rem; z-index: 2000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: none; }
+
+        .formula-item { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 15px; }
+        .break-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .break-row input { width: 100px; }
+        
+        @media print {
+            .settings-bar, .no-print, .modal, button { display: none !important; }
+            .card { box-shadow: none; border: none; padding: 0; }
+            .matrix-price-input { border: none !important; padding: 0 !important; }
+        }
     </style>
 </head>
 <body>
 <div id="toast" class="toast"></div>
+
 <div class="container">
     <div class="card">
         <div class="flex-row flex-between" style="margin-bottom: 20px;">
-            <h2>📊 ระบบจัดการราคารับซื้อ (v1.6.2 แก้ไข Matrix ได้)</h2>
+            <h2>📊 ระบบจัดการราคารับซื้อ (v1.6.2 Matrix Editable)</h2>
             <div class="flex-row">
-                <button id="manageFormulasBtn" class="btn-outline" style="color:#38a169; background:white; border:1px solid #38a169;">⚙️ สูตรน้ำหนักกลาง</button>
-                <button id="saveToSheetsBtn" style="background: #38a169;">📤 บันทึกไป Sheets</button>
+                <button id="manageFormulasBtn" class="btn-outline">⚙️ สูตรน้ำหนัก</button>
+                <button id="printBasicBtn" class="btn-outline">🖨️ พิมพ์ราคา</button>
+                <button id="refreshBtn" class="btn-outline">⟳ รีเฟรช</button>
             </div>
         </div>
 
         <div class="settings-bar">
-            <div class="flex-row">
-                <div class="form-group"><label>🔍 ค้นหา</label><input type="text" id="searchProduct" placeholder="ชื่อสินค้า..."></div>
-                <div class="form-group"><label>📂 กรองหมวด</label><select id="categoryFilterSelect"><option value="all">ทั้งหมด</option></select></div>
-                <button id="loadFromSheetsBtn" style="background: #4299e1;">📥 โหลดข้อมูลใหม่</button>
-                <button id="refreshBtn" style="background: #cbd5e0; color: #4a5568;">⟳ รีเฟรชหน้า</button>
+            <!-- ส่วนจัดการส่วนลดหมวด -->
+            <div class="flex-row" style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0;">
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label>📂 เลือกหมวดหมู่เพื่อตั้งค่าส่วนลด</label>
+                    <select id="discountCategorySelect"></select>
+                </div>
+                <div class="form-group"><label>ส่วนลด B</label><input type="number" id="catBDisc" step="0.01"></div>
+                <div class="form-group"><label>ส่วนลด C</label><input type="number" id="catCDisc" step="0.01"></div>
+                <div class="form-group"><label>ส่วนลด D</label><input type="number" id="catDDisc" step="0.01"></div>
+                <div class="form-group"><label>ส่วนลด Walk</label><input type="number" id="catWalkingDisc" step="0.01"></div>
+                <button id="saveCategoryDiscounts" style="background: #ed8936;">💾 บันทึกส่วนลดหมวด</button>
+            </div>
+
+            <!-- ค้นหาและบันทึก -->
+            <div class="flex-row flex-between">
+                <div class="flex-row">
+                    <div class="form-group"><label>🔍 ค้นหา</label><input type="text" id="searchProduct" placeholder="ชื่อสินค้า..."></div>
+                    <div class="form-group"><label>📂 กรองหมวด</label><select id="categoryFilterSelect"><option value="all">ทั้งหมด</option></select></div>
+                </div>
+                <div class="flex-row">
+                    <button id="loadFromSheetsBtn" style="background: #4299e1;">📥 โหลดข้อมูล</button>
+                    <button id="saveToSheetsBtn" style="background: #38a169; box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);">📤 บันทึกไป Sheets</button>
+                </div>
             </div>
         </div>
 
@@ -75,14 +118,16 @@
             <table class="product-table">
                 <thead>
                     <tr>
-                        <th>สินค้า</th>
+                        <th style="width: 120px;">หมวดหมู่</th>
+                        <th>ชื่อสินค้า</th>
+                        <th style="width: 70px;">หน่วย</th>
                         <th style="width: 140px;">สูตรน้ำหนัก</th>
-                        <th>ราคา A (ฐาน)</th>
-                        <th>B</th>
-                        <th>C</th>
-                        <th>D</th>
-                        <th>Walk</th>
-                        <th style="width: 400px;">📊 ตารางราคาตามน้ำหนัก (แก้ไขเองได้)</th>
+                        <th>ราคา A</th>
+                        <th>Tier B</th>
+                        <th>Tier C</th>
+                        <th>Tier D</th>
+                        <th>Walking</th>
+                        <th style="width: 320px;">📊 ตารางน้ำหนัก (Matrix)</th>
                     </tr>
                 </thead>
                 <tbody id="productList"></tbody>
@@ -91,14 +136,14 @@
     </div>
 </div>
 
+<!-- Modal จัดการสูตร -->
 <div id="formulaManagerModal" class="modal hidden">
     <div class="modal-content">
-        <h3>📐 ตั้งค่าสูตรน้ำหนักกลาง (Master Formulas)</h3>
-        <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">การแก้ไขที่นี่จะเปลี่ยนโครงสร้างช่วงน้ำหนักของสินค้าที่ใช้สูตรนี้</p>
+        <h3 style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #edf2f7;">📐 ตั้งค่าสูตรส่วนลดตามน้ำหนัก</h3>
         <div id="formulaListArea"></div>
         <button id="addFormulaBtn" style="background: #4299e1; margin-top: 15px;">➕ เพิ่มสูตรใหม่</button>
-        <div class="flex-row" style="justify-content: flex-end; margin-top: 25px;">
-            <button id="closeFormulaModalBtn">ตกลงและปิด</button>
+        <div class="flex-row" style="justify-content: flex-end; margin-top: 25px; padding-top: 15px; border-top: 1px solid #edf2f7;">
+            <button id="closeFormulaModalBtn" class="btn-outline">ปิดหน้าต่าง</button>
         </div>
     </div>
 </div>
@@ -111,49 +156,82 @@
     let products = [];
     let currentCategoryFilter = "all";
 
-    function showToast(m) { 
-        const t = document.getElementById('toast'); 
-        if(t) {
-            t.innerText=m; 
-            t.style.display='block'; 
-            setTimeout(()=>t.style.display='none',2000); 
-        }
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    function escapeHtml(str) { if(!str) return ''; return str.toString().replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+    function saveToLocalStorage() {
+        localStorage.setItem("price_categories", JSON.stringify(categories));
+        localStorage.setItem("price_formulas", JSON.stringify(volumeFormulas));
+        localStorage.setItem("price_products", JSON.stringify(products));
+    }
+
+    function loadFromLocalStorage() {
+        const cats = localStorage.getItem("price_categories");
+        const forms = localStorage.getItem("price_formulas");
+        const prods = localStorage.getItem("price_products");
+        if(cats) categories = JSON.parse(cats);
+        if(forms) volumeFormulas = JSON.parse(forms);
+        if(prods) products = JSON.parse(prods);
+        renderProducts();
+        populateSelects();
     }
 
     function getTierPrice(product, tier) {
         const field = 'price' + tier;
-        if (product[field] !== undefined && product[field] !== null && product[field] !== "" && product[field] !== 0) return parseFloat(product[field]);
+        if (product[field] !== undefined && product[field] !== null && product[field] !== 0 && product[field] !== "") {
+            return parseFloat(product[field]);
+        }
         const cat = categories.find(c => c.id === product.categoryId);
         const priceA = parseFloat(product.priceA) || 0;
         if(!cat) return priceA;
         const d = cat.discounts || { b:0, c:0, d:0, walking:0 };
-        const disc = (tier === 'Walking') ? d.walking : d[tier.toLowerCase()];
-        return Math.max(0, priceA - (parseFloat(disc) || 0));
+        switch(tier) {
+            case 'B': return Math.max(0, priceA - (parseFloat(d.b) || 0));
+            case 'C': return Math.max(0, priceA - (parseFloat(d.c) || 0));
+            case 'D': return Math.max(0, priceA - (parseFloat(d.d) || 0));
+            case 'Walking': return Math.max(0, priceA - (parseFloat(d.walking) || 0));
+            default: return priceA;
+        }
     }
 
-    function buildEditableMatrix(product) {
+    // ฟังก์ชันสร้างตาราง Matrix ที่สามารถแก้ไขค่าได้
+    function buildVolumeMatrix(product) {
         const formula = volumeFormulas.find(f => f.id === product.formulaId);
-        if(!formula || !formula.breaks || !formula.breaks.length) return '<div style="color:#ccc;">ไม่ได้เลือกสูตร</div>';
-        if (!product.matrixOverrides) product.matrixOverrides = {};
+        if(!formula || !formula.breaks || !formula.breaks.length) return '<div style="color:#a0aec0; font-size:0.7rem;">ไม่ได้กำหนดสูตร</div>';
+        
+        // ตรวจสอบว่ามีที่เก็บราคาที่แก้ไขมือหรือไม่
+        if (!product.matrixPrices) product.matrixPrices = {};
 
-        let html = `<table class="matrix-table"><thead><tr><th>น้ำหนัก</th><th>A</th><th>B</th><th>C</th><th>D</th><th>W</th></tr></thead><tbody>`;
+        let html = `<table class="matrix-table"><thead><tr><th>น้ำหนัก</th><th>A</th><th>B</th><th>C</th><th>D</th><th>Walk</th></tr></thead><tbody>`;
         const tiers = ['A','B','C','D','Walking'];
         
-        formula.breaks.forEach((br) => {
-            const rangeKey = `${br.min}-${br.max}`;
+        formula.breaks.forEach((br, bIdx) => {
             const rangeText = br.max >= 999999 ? `> ${br.min}` : `${br.min}-${br.max}`;
             html += `<tr><td class="weight-range">${rangeText}</td>`;
             
             tiers.forEach(tier => {
-                const overrideKey = `${rangeKey}_${tier}`;
-                let displayPrice;
-                if (product.matrixOverrides[overrideKey] !== undefined) {
-                    displayPrice = product.matrixOverrides[overrideKey];
-                } else {
-                    const baseTierPrice = (tier === 'A') ? parseFloat(product.priceA) : getTierPrice(product, tier);
-                    displayPrice = Math.max(0, baseTierPrice - (parseFloat(br.discountBaht) || 0)).toFixed(2);
-                }
-                html += `<td><input type="number" step="0.01" data-pid="${product.id}" data-key="${overrideKey}" class="matrix-edit-input" value="${displayPrice}"></td>`;
+                const matrixKey = `${bIdx}_${tier}`;
+                const basePrice = tier === 'A' ? parseFloat(product.priceA) : getTierPrice(product, tier);
+                const calculatedPrice = Math.max(0, basePrice - (parseFloat(br.discountBaht) || 0));
+                
+                // ใช้ค่าที่แก้ไขมือถ้ามี ถ้าไม่มีให้ใช้ค่าคำนวณ
+                const displayValue = product.matrixPrices[matrixKey] !== undefined ? 
+                                    product.matrixPrices[matrixKey] : calculatedPrice;
+
+                html += `<td>
+                    <input type="number" 
+                        class="matrix-price-input" 
+                        data-prod-id="${product.id}" 
+                        data-key="${matrixKey}" 
+                        value="${parseFloat(displayValue).toFixed(2)}" 
+                        step="0.01">
+                </td>`;
             });
             html += `</tr>`;
         });
@@ -162,150 +240,276 @@
     }
 
     function renderProducts() {
-        const searchInput = document.getElementById('searchProduct');
-        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const searchTerm = document.getElementById('searchProduct')?.value.toLowerCase() || '';
         const tbody = document.getElementById('productList');
-        if(!tbody) return;
-
         let filtered = products.filter(p => {
             if (currentCategoryFilter !== "all" && p.categoryId !== currentCategoryFilter) return false;
-            return p.name.toLowerCase().includes(searchTerm);
+            if (searchTerm && !p.name.toLowerCase().includes(searchTerm)) return false;
+            return true;
         });
 
-        tbody.innerHTML = filtered.map(p => `
-            <tr>
-                <td><b>${p.name}</b><br><small style="color:#666">${categories.find(c=>c.id===p.categoryId)?.name || ''}</small></td>
-                <td>
-                    <select class="formula-select" data-id="${p.id}">
-                        <option value="">-- ไม่ใช้สูตร --</option>
-                        ${volumeFormulas.map(f => `<option value="${f.id}" ${f.id === p.formulaId ? 'selected' : ''}>${f.name}</option>`).join('')}
-                    </select>
-                </td>
-                <td><input type="number" class="price-input" data-id="${p.id}" data-tier="A" value="${p.priceA || 0}"></td>
-                <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="B" value="${getTierPrice(p, 'B').toFixed(2)}"></td>
-                <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="C" value="${getTierPrice(p, 'C').toFixed(2)}"></td>
-                <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="D" value="${getTierPrice(p, 'D').toFixed(2)}"></td>
-                <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="Walking" value="${getTierPrice(p, 'Walking').toFixed(2)}"></td>
-                <td>${buildEditableMatrix(p)}</td>
-            </tr>
-        `).join('');
-        attachEvents();
+        if(!filtered.length && products.length > 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 50px; color:#a0aec0;"> ไม่พบสินค้าตามเงื่อนไข </td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(p => {
+            const cat = categories.find(c => c.id === p.categoryId);
+            const catName = cat ? cat.name : '-';
+            return `
+                <tr>
+                    <td><span style="font-size:0.7rem; font-weight:700; color:#718096; background:#edf2f7; padding:2px 8px; border-radius:6px;">${escapeHtml(catName)}</span></td>
+                    <td style="font-weight:600;">${escapeHtml(p.name)}</td>
+                    <td>${p.unit || 'กก.'}</td>
+                    <td>
+                        <select class="formula-select" data-id="${p.id}" style="width:100%; font-size:0.75rem; padding:5px;">
+                            <option value="">-- ไม่ใช้สูตร --</option>
+                            ${volumeFormulas.map(f => `<option value="${f.id}" ${f.id === p.formulaId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="number" class="price-input" data-id="${p.id}" data-tier="A" value="${p.priceA || 0}" step="0.01"></td>
+                    <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="B" value="${getTierPrice(p, 'B').toFixed(2)}" step="0.01"></td>
+                    <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="C" value="${getTierPrice(p, 'C').toFixed(2)}" step="0.01"></td>
+                    <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="D" value="${getTierPrice(p, 'D').toFixed(2)}" step="0.01"></td>
+                    <td><input type="number" class="tier-input" data-id="${p.id}" data-tier="Walking" value="${getTierPrice(p, 'Walking').toFixed(2)}" step="0.01"></td>
+                    <td>${buildVolumeMatrix(p)}</td>
+                </tr>
+            `;
+        }).join('');
+        attachProductEvents();
     }
 
-    function attachEvents() {
+    function attachProductEvents() {
         document.querySelectorAll('.price-input, .tier-input').forEach(inp => {
-            inp.onchange = (e) => {
-                const p = products.find(x => x.id === e.target.dataset.id);
+            inp.addEventListener('change', (e) => {
+                const id = e.target.dataset.id;
                 const tier = e.target.dataset.tier;
-                if(tier === 'A') p.priceA = e.target.value;
-                else p['price'+tier] = e.target.value;
-                p.matrixOverrides = {}; 
-                renderProducts();
-            };
+                const val = parseFloat(e.target.value) || 0;
+                const prod = products.find(p => p.id === id);
+                if(prod) { 
+                    if (tier === 'A') {
+                        prod.priceA = val;
+                        const cat = categories.find(c => c.id === prod.categoryId);
+                        if (cat) {
+                            prod.priceB = Math.max(0, val - (cat.discounts.b || 0));
+                            prod.priceC = Math.max(0, val - (cat.discounts.c || 0));
+                            prod.priceD = Math.max(0, val - (cat.discounts.d || 0));
+                            prod.priceWalking = Math.max(0, val - (cat.discounts.walking || 0));
+                        }
+                        // เมื่อราคาหลักเปลี่ยน ให้ล้างค่าที่เคยแก้ใน Matrix ออกเพื่อให้คำนวณใหม่
+                        prod.matrixPrices = {};
+                    } else {
+                        prod['price' + tier] = val;
+                        // ล้างค่า Matrix เฉพาะ Tier ที่เปลี่ยน
+                        if(prod.matrixPrices) {
+                            Object.keys(prod.matrixPrices).forEach(key => {
+                                if(key.endsWith('_' + tier)) delete prod.matrixPrices[key];
+                            });
+                        }
+                    }
+                    saveToLocalStorage(); 
+                    renderProducts(); 
+                }
+            });
         });
 
-        document.querySelectorAll('.matrix-edit-input').forEach(inp => {
-            inp.onchange = (e) => {
-                const p = products.find(x => x.id === e.target.dataset.pid);
-                if(p) {
-                    if(!p.matrixOverrides) p.matrixOverrides = {};
-                    p.matrixOverrides[e.target.dataset.key] = e.target.value;
-                    showToast("จำราคาพิเศษรายชิ้นแล้ว");
+        // ดักจับการแก้ไขใน Matrix
+        document.querySelectorAll('.matrix-price-input').forEach(inp => {
+            inp.addEventListener('change', (e) => {
+                const prodId = e.target.dataset.prodId;
+                const key = e.target.dataset.key;
+                const val = parseFloat(e.target.value) || 0;
+                const prod = products.find(p => p.id === prodId);
+                if(prod) {
+                    if (!prod.matrixPrices) prod.matrixPrices = {};
+                    prod.matrixPrices[key] = val;
+                    saveToLocalStorage();
+                    // แจ้งเตือนเล็กน้อยว่าบันทึกแล้ว
+                    e.target.style.color = '#38a169'; 
+                    e.target.style.fontWeight = '700';
                 }
-            };
+            });
         });
 
         document.querySelectorAll('.formula-select').forEach(sel => {
-            sel.onchange = (e) => {
-                const p = products.find(x => x.id === e.target.dataset.id);
-                if(p) {
-                    p.formulaId = e.target.value;
-                    p.matrixOverrides = {}; 
-                    renderProducts();
+            sel.addEventListener('change', (e) => {
+                const prod = products.find(p => p.id === e.target.dataset.id);
+                if(prod) { 
+                    prod.formulaId = e.target.value; 
+                    prod.matrixPrices = {}; // เปลี่ยนสูตรใหม่ให้ล้างค่าเก่า
+                    saveToLocalStorage(); 
+                    renderProducts(); 
                 }
-            };
+            });
         });
     }
 
-    async function loadData() {
-        showToast("⏳ กำลังโหลด...");
+    function populateSelects() {
+        const catSelect = document.getElementById('discountCategorySelect');
+        catSelect.innerHTML = categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        const filterSelect = document.getElementById('categoryFilterSelect');
+        filterSelect.innerHTML = '<option value="all">ทั้งหมด</option>' + categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        if (catSelect.value) catSelect.dispatchEvent(new Event('change'));
+    }
+
+    async function loadFromGoogleSheets(isAuto = false) {
+        if (!isAuto) showToast("⏳ กำลังโหลดข้อมูล...");
         try {
             const res = await fetch(`${GOOGLE_SHEET_URL}?action=load`);
             const data = await res.json();
-            categories = data.categories || [];
-            volumeFormulas = (data.formulas || []).map(f => ({...f, breaks: JSON.parse(f.breaks || '[]')}));
-            products = (data.products || []).map(p => ({
-                ...p, 
-                matrixOverrides: p.matrixOverrides ? JSON.parse(p.matrixOverrides) : {} 
-            }));
-            renderProducts();
-            
-            const filterSel = document.getElementById('categoryFilterSelect');
-            if(filterSel) {
-                filterSel.innerHTML = '<option value="all">ทั้งหมด</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            if (data.categories && data.products) {
+                categories = data.categories.map(c => ({
+                    id: c.id, name: c.name,
+                    discounts: {
+                        b: Number(c.discounts_b) || 0, c: Number(c.discounts_c) || 0,
+                        d: Number(c.discounts_d) || 0, walking: Number(c.discounts_walking) || 0
+                    }
+                }));
+                volumeFormulas = (data.formulas || []).map(f => ({
+                    id: f.id, name: f.name,
+                    breaks: typeof f.breaks === 'string' ? JSON.parse(f.breaks) : f.breaks
+                }));
+                products = data.products.map(p => ({
+                    ...p, 
+                    priceA: Number(p.priceA) || 0,
+                    priceB: p.priceB ? Number(p.priceB) : null,
+                    priceC: p.priceC ? Number(p.priceC) : null,
+                    priceD: p.priceD ? Number(p.priceD) : null,
+                    priceWalking: p.priceWalking ? Number(p.priceWalking) : null,
+                    // โหลด matrixPrices จาก JSON string ถ้ามี
+                    matrixPrices: p.matrixPrices ? JSON.parse(p.matrixPrices) : {}
+                }));
+                saveToLocalStorage();
+                renderProducts();
+                populateSelects();
+                if(!isAuto) showToast("✅ โหลดข้อมูลสำเร็จ!");
             }
-            showToast("✅ ข้อมูลอัปเดตแล้ว");
-        } catch(e) { 
-            console.error(e);
-            showToast("❌ โหลดข้อมูลไม่สำเร็จ"); 
-        }
+        } catch(e) { if(!isAuto) showToast("❌ โหลดไม่สำเร็จ"); }
     }
 
-    async function saveAll() {
-        showToast("⏳ กำลังบันทึก...");
+    async function saveToGoogleSheets() {
+        showToast("⏳ กำลังส่งข้อมูลไปยัง Google Sheets...");
         const payload = {
             type: 'all',
             records: {
-                categories: categories,
-                formulas: volumeFormulas.map(f => ({...f, breaks: JSON.stringify(f.breaks)})),
+                categories: categories.map(c => ({
+                    id: c.id, name: c.name, 
+                    discounts_b: c.discounts.b, discounts_c: c.discounts.c, 
+                    discounts_d: c.discounts.d, discounts_walking: c.discounts.walking 
+                })),
+                formulas: volumeFormulas.map(f => ({
+                    id: f.id, name: f.name, breaks: JSON.stringify(f.breaks) 
+                })),
                 products: products.map(p => ({
-                    ...p,
-                    matrixOverrides: JSON.stringify(p.matrixOverrides || {})
+                    id: p.id, name: p.name, categoryId: p.categoryId, unit: p.unit,
+                    formulaId: p.formulaId,
+                    priceA: p.priceA, 
+                    priceB: p.priceB, priceC: p.priceC, priceD: p.priceD, priceWalking: p.priceWalking,
+                    // ส่ง matrixPrices ไปในรูปแบบ JSON string
+                    matrixPrices: JSON.stringify(p.matrixPrices || {})
                 }))
             }
         };
         try {
             await fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify(payload) });
-            showToast("🚀 บันทึกไป Sheets สำเร็จ!");
-        } catch(e) { 
-            console.error(e);
-            showToast("❌ บันทึกไม่สำเร็จ"); 
-        }
+            showToast("🚀 บันทึกเรียบร้อย!");
+        } catch(e) { showToast("❌ บันทึกผิดพลาด"); }
     }
 
-    // แก้ไขปัญหา TypeError: Cannot set properties of null (setting 'onclick')
-    // โดยการใช้ DOMContentLoaded เพื่อรอให้ Element ถูกสร้างเสร็จก่อน
-    window.addEventListener('DOMContentLoaded', () => {
-        const saveBtn = document.getElementById('saveToSheetsBtn');
-        if(saveBtn) saveBtn.onclick = saveAll;
-
-        const loadBtn = document.getElementById('loadFromSheetsBtn');
-        if(loadBtn) loadBtn.onclick = loadData;
-
-        const refreshBtn = document.getElementById('refreshBtn');
-        if(refreshBtn) refreshBtn.onclick = () => location.reload();
-
-        const searchInp = document.getElementById('searchProduct');
-        if(searchInp) searchInp.oninput = renderProducts;
-
-        const filterSel = document.getElementById('categoryFilterSelect');
-        if(filterSel) filterSel.onchange = (e) => { currentCategoryFilter = e.target.value; renderProducts(); };
-
-        const manageBtn = document.getElementById('manageFormulasBtn');
-        if(manageBtn) manageBtn.onclick = () => {
-            const modal = document.getElementById('formulaManagerModal');
-            if(modal) modal.classList.remove('hidden');
+    document.addEventListener('DOMContentLoaded', () => {
+        loadFromLocalStorage();
+        loadFromGoogleSheets(true);
+        
+        document.getElementById('refreshBtn').onclick = () => location.reload();
+        document.getElementById('searchProduct').oninput = renderProducts;
+        document.getElementById('categoryFilterSelect').onchange = (e) => {
+            currentCategoryFilter = e.target.value;
+            renderProducts();
         };
 
-        const closeBtn = document.getElementById('closeFormulaModalBtn');
-        if(closeBtn) closeBtn.onclick = () => {
-            const modal = document.getElementById('formulaManagerModal');
-            if(modal) modal.classList.add('hidden');
+        document.getElementById('discountCategorySelect').onchange = (e) => {
+            const cat = categories.find(c => c.id === e.target.value);
+            if (cat) {
+                document.getElementById('catBDisc').value = cat.discounts.b || 0;
+                document.getElementById('catCDisc').value = cat.discounts.c || 0;
+                document.getElementById('catDDisc').value = cat.discounts.d || 0;
+                document.getElementById('catWalkingDisc').value = cat.discounts.walking || 0;
+            }
+        };
+        
+        document.getElementById('loadFromSheetsBtn').onclick = () => loadFromGoogleSheets(false);
+        document.getElementById('saveToSheetsBtn').onclick = saveToGoogleSheets;
+        
+        document.getElementById('manageFormulasBtn').onclick = () => {
+            renderFormulaManager();
+            document.getElementById('formulaManagerModal').classList.remove('hidden');
+        };
+        document.getElementById('closeFormulaModalBtn').onclick = () => {
+            document.getElementById('formulaManagerModal').classList.add('hidden');
+            renderProducts();
         };
 
-        // เริ่มโหลดข้อมูลทันทีเมื่อ DOM พร้อม
-        loadData();
+        document.getElementById('saveCategoryDiscounts').onclick = () => {
+            const catId = document.getElementById('discountCategorySelect').value;
+            const cat = categories.find(c => c.id === catId);
+            if(cat) {
+                cat.discounts = {
+                    b: parseFloat(document.getElementById('catBDisc').value) || 0,
+                    c: parseFloat(document.getElementById('catCDisc').value) || 0,
+                    d: parseFloat(document.getElementById('catDDisc').value) || 0,
+                    walking: parseFloat(document.getElementById('catWalkingDisc').value) || 0
+                };
+                products.forEach(p => {
+                    if (p.categoryId === catId) {
+                        p.priceB = Math.max(0, (p.priceA || 0) - cat.discounts.b);
+                        p.priceC = Math.max(0, (p.priceA || 0) - cat.discounts.c);
+                        p.priceD = Math.max(0, (p.priceA || 0) - cat.discounts.d);
+                        p.priceWalking = Math.max(0, (p.priceA || 0) - cat.discounts.walking);
+                        p.matrixPrices = {}; // ล้างค่า Matrix เก่าเมื่อตั้งค่าส่วนลดใหม่
+                    }
+                });
+                saveToLocalStorage();
+                renderProducts();
+                showToast(`อัปเดตราคาทั้งหมวด ${cat.name} เรียบร้อย`);
+            }
+        };
+
+        document.getElementById('addFormulaBtn').onclick = () => {
+            volumeFormulas.push({ id: 'vol_'+Date.now(), name: 'สูตรใหม่', breaks: [] });
+            renderFormulaManager();
+        };
+        document.getElementById('printBasicBtn').onclick = () => window.print();
     });
+
+    function renderFormulaManager() {
+        const area = document.getElementById('formulaListArea');
+        area.innerHTML = '';
+        volumeFormulas.forEach((formula, fIdx) => {
+            const div = document.createElement('div');
+            div.className = 'formula-item';
+            div.innerHTML = `
+                <div class="flex-row flex-between" style="margin-bottom:15px;">
+                    <input type="text" value="${formula.name}" placeholder="ชื่อสูตร" onchange="volumeFormulas[${fIdx}].name=this.value" style="width:70%; font-weight:700;">
+                    <button onclick="volumeFormulas.splice(${fIdx}, 1); renderFormulaManager();" style="background:#fed7d7; color:#c53030; padding:8px 12px; border-radius:10px;">🗑️</button>
+                </div>
+                <div id="breaks-${fIdx}">
+                    ${(formula.breaks || []).map((br, bIdx) => `
+                        <div class="break-row">
+                            <input type="number" value="${br.min}" placeholder="Min (kg)" onchange="volumeFormulas[${fIdx}].breaks[${bIdx}].min=parseFloat(this.value)">
+                            <span>ถึง</span>
+                            <input type="number" value="${br.max}" placeholder="Max (kg)" onchange="volumeFormulas[${fIdx}].breaks[${bIdx}].max=parseFloat(this.value)">
+                            <span>ลดลง</span>
+                            <input type="number" step="0.01" value="${br.discountBaht}" placeholder="บาท" onchange="volumeFormulas[${fIdx}].breaks[${bIdx}].discountBaht=parseFloat(this.value)">
+                            <span>฿</span>
+                            <button onclick="volumeFormulas[${fIdx}].breaks.splice(${bIdx},1); renderFormulaManager();" style="background:#edf2f7; color:#4a5568; padding:5px 10px; border-radius:10px;">×</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button onclick="volumeFormulas[${fIdx}].breaks.push({min:0,max:9999,discountBaht:0}); renderFormulaManager();" style="background:#e2e8f0; color:#2d3748; font-size:0.75rem; margin-top:10px; border-radius:10px;">+ เพิ่มช่วงน้ำหนัก</button>
+            `;
+            area.appendChild(div);
+        });
+    }
 </script>
 </body>
 </html>
